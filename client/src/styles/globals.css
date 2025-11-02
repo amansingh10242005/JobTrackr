@@ -1,0 +1,400 @@
+/* ==========================
+   GLOBAL STYLES / JobTrackr
+========================== */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button, input, textarea, select {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#__next {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- VARIABLES ---------- */
+:root {
+  --bg: #f8fafd;
+  --text: #333;
+  --card-bg: #fff;
+  --input-bg: #fff;
+  --border: #ddd;
+  --muted: #777;
+  --hover: #f0f5ff;
+  --active: #eaf2ff;
+  --blue: #2575fc;
+  --shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] {
+  --bg: #1e1e1e;
+  --text: #f5f5f5;
+  --card-bg: #2a2a2a;
+  --input-bg: #333;
+  --border: #444;
+  --muted: #aaa;
+  --hover: #333;
+  --active: #444;
+  --chip-bg: #2f3b52;
+}
+
+/* ---------- LAYOUT ---------- */
+.appLayout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  transition: grid-template-columns 0.3s ease;
+}
+
+.appLayout.collapsed {
+  grid-template-columns: 60px 1fr;
+}
+
+.mainContent {
+  padding: 1.5rem;
+  overflow-y: auto;
+  transition: margin-left 0.3s ease;
+}
+
+/* ---------- HEADER ---------- */
+.header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 1.5rem;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.headerLeft .logo,
+.logo {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--blue);
+}
+
+.headerMiddle {
+  flex: 1;
+  max-width: 480px;
+  margin: 0 2rem;
+}
+
+.searchWrapper {
+  position: relative;
+  width: 100%;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+
+.searchInput {
+  width: 100%;
+  padding: 0.6rem 0.6rem 0.6rem 2.2rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+/* ---------- ICONS ---------- */
+.icon, .avatar, .navIcon {
+  width: 22px;
+  height: 22px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  color: var(--blue);
+}
+
+.navIcon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.iconBtn {
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+}
+
+/* ---------- SIDEBAR ---------- */
+.sidebar {
+  grid-row: 2 / -1;
+  background: var(--card-bg);
+  border-right: 1px solid var(--border);
+  padding: 1.5rem 1rem;
+  position: sticky;
+  top: 60px;
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+  transition: width 0.3s ease;
+}
+
+.logoWithChevron {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.logoWithChevron .icon, .collapsedHeader .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.collapsedHeader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.sidebar.collapsed .logoWithChevron {
+  display: none;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.4rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--text);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.navItem:hover {
+  background: var(--hover);
+  color: var(--blue);
+}
+
+.activeNav {
+  background: var(--active);
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.sidebar.collapsed {
+  width: 60px;
+  padding-top: 40px;
+}
+
+.sidebar.collapsed .navItem {
+  justify-content: center;
+  gap: 0;
+  padding: 0.7rem;
+}
+
+.sidebar.collapsed .navItem span {
+  display: none;
+}
+
+/* ---------- FOOTER ---------- */
+.footer {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: var(--card-bg);
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+
+/* ---------- CONTAINER ---------- */
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 900px) {
+  .appLayout {
+    grid-template-columns: 60px 1fr;
+  }
+
+  .headerMiddle {
+    display: none;
+  }
+
+  .sidebar {
+    padding: 1rem 0.5rem;
+  }
+
+  .navItem span {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .formRow {
+    flex-direction: column;
+  }
+}
+
+/* ---------- PROFILE DROPDOWN ---------- */
+.profileDropdown {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  z-index: 1000;
+}
+
+.profileButton {
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 0.95rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.profileButton:hover {
+  background: var(--hover);
+  color: var(--blue);
+}
+
+/* ---------- NOTIFICATIONS UI ---------- */
+.notif-close {
+  background: transparent;
+  border: none;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.notif-close:hover {
+  transform: scale(1.06);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* notification item */
+.notif-item {
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  background: var(--card-bg);
+  border: 1px solid transparent;
+}
+
+.notif-item.unread {
+  background: rgba(37, 99, 235, 0.04); /* subtle highlight for unread */
+}
+
+.notif-item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
+}
+
+/* unread dot */
+.notif-unread-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--blue);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+/* buttons */
+.notif-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.notif-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+}
+
+.notif-btn-primary {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+}
+
+.notif-btn-ghost {
+  background: transparent;
+  color: var(--muted);
+}
+.recharts-pie-sector:focus {
+  outline: none !important;
+}
+.recharts-pie-sector {
+  outline: none !important;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
