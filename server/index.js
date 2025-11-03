@@ -1163,6 +1163,7 @@ if (pathname === "/api/account/delete" && req.method === "DELETE") {
 }
 
 
+<<<<<<< HEAD
 
 if (pathname === "/" && req.method === "GET") {
   const indexPath = path.join(process.cwd(), "../client/out/index.html");
@@ -1178,6 +1179,8 @@ if (pathname === "/" && req.method === "GET") {
 }
 
 
+=======
+>>>>>>> e6969c154de8b5f5d2c9004fd97e3ad1af5e8287
     // ========== 404 HANDLER ==========
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ 
