@@ -6,6 +6,8 @@ import { parseBody } from "./utils/parseBody.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { v4 as uuidv4 } from "uuid";
+import fs from "fs";
+import path from "path";
 import {
   registerUser,
   loginUser,
@@ -91,7 +93,15 @@ const server = http.createServer(async (req, res) => {
   const { pathname } = parse(req.url, true);
 
   // Enhanced CORS configuration
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const origin = req.headers["origin"]; 
+  const allowedOrigins = new Set([
+    "https://job-trackr-dusky.vercel.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000"
+  ]);
+  if (origin && allowedOrigins.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS, PUT");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -1151,6 +1161,22 @@ if (pathname === "/api/account/delete" && req.method === "DELETE") {
   res.end(JSON.stringify(result.body));
   return;
 }
+
+
+
+if (pathname === "/" && req.method === "GET") {
+  const indexPath = path.join(process.cwd(), "../client/out/index.html");
+  if (fs.existsSync(indexPath)) {
+    const html = fs.readFileSync(indexPath, "utf-8");
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+  } else {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ message: "Frontend build not found" }));
+  }
+  return;
+}
+
 
     // ========== 404 HANDLER ==========
     res.writeHead(404, { "Content-Type": "application/json" });

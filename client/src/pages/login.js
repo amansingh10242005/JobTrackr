@@ -3,6 +3,7 @@ import Link from "next/link";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 export default function AuthPage() {
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://jobtrackr-4e48.onrender.com/api";
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -52,7 +53,7 @@ export default function AuthPage() {
     errorTimerRef.current = setTimeout(() => {
       setError("");
       errorTimerRef.current = null;
-    }, 10000);
+    }, 5000);
   };
 
   const showSuccess = (msg) => {
@@ -163,7 +164,7 @@ export default function AuthPage() {
       usernameCheckTimerRef.current = setTimeout(async () => {
         try {
           const res = await fetch(
-            `http://localhost:10000/api/users/check-username?username=${encodeURIComponent(
+            `https://jobtrackr-4e48.onrender.com/api/users/check-username?username=${encodeURIComponent(
               value
             )}`
           );
@@ -215,7 +216,7 @@ export default function AuthPage() {
     try {
       if (isLogin) {
         // Login API
-        const res = await fetch("http://localhost:10000/api/users/login", {
+          const res = await fetch(`${API_BASE}/users/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password }),
@@ -259,7 +260,7 @@ export default function AuthPage() {
       } else {
         // Register API
         // Register API
-const res = await fetch("http://localhost:10000/api/users/register", {
+const res = await fetch(`${API_BASE}/users/register`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ username, email, password, confirmPassword: confirm }),
@@ -304,7 +305,7 @@ setTimeout(() => {
     }
 
     try {
-      const res = await fetch("http://localhost:10000/api/users/verify-login-2fa", {
+      const res = await fetch(`${API_BASE}/users/verify-login-2fa`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: twoFAUsername, otp }),
@@ -349,7 +350,7 @@ setTimeout(() => {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:10000/api/users/forgot-password", {
+      const res = await fetch(`${API_BASE}/users/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // your backend expects `username` (username OR email). keep that.

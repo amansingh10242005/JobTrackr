@@ -42,7 +42,7 @@ export default function TokenPage() {
 
     const verifyEmail = async () => {
       try {
-        const res = await fetch("http://localhost:10000/api/users/verify-email", {
+        const res = await fetch("https://jobtrackr-4e48.onrender.com/api/users/verify-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token }),
@@ -75,7 +75,7 @@ export default function TokenPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:10000/api/users/reset-password", {
+      const res = await fetch("https://jobtrackr-4e48.onrender.com/api/users/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),
