@@ -54,7 +54,7 @@ const DEFAULT_COLORS = ["#2575fc", "#f0ad4e", "#d9534f", "#22c55e"];
 
 const API_BASE =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
-  "http://localhost:5000";
+  "http://localhost:10000";
 
 /* ---------- data hook ---------- */
 const useAnalyticsData = () => {

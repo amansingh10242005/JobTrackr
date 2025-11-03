@@ -19,7 +19,7 @@ const apiFetch = async (path, options = {}) => {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`http://localhost:5000/api${path}`, {
+  const response = await fetch(`http://localhost:10000/api${path}`, {
     ...options,
     headers,
   });

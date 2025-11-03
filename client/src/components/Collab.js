@@ -30,7 +30,7 @@ import {
 
 // Enhanced Backend API service with Team Features
 const collabAPI = {
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:10000/api",
 
   // In your collabAPI object, update the request function:
 async request(endpoint, options = {}) {
