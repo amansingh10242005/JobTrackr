@@ -6,8 +6,6 @@ import { parseBody } from "./utils/parseBody.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { v4 as uuidv4 } from "uuid";
-import fs from "fs";
-import path from "path";
 import {
   registerUser,
   loginUser,
@@ -1151,20 +1149,6 @@ if (pathname === "/api/account/delete" && req.method === "DELETE") {
   const result = await deleteAccount(req);
   res.writeHead(result.status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(result.body));
-  return;
-}
-
-
-if (pathname === "/" && req.method === "GET") {
-  const indexPath = path.join(process.cwd(), "../client/out/index.html");
-  if (fs.existsSync(indexPath)) {
-    const html = fs.readFileSync(indexPath, "utf-8");
-    res.writeHead(200, { "Content-Type": "text/html" });
-    res.end(html);
-  } else {
-    res.writeHead(404, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ message: "Frontend build not found" }));
-  }
   return;
 }
 
