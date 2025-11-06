@@ -52,9 +52,13 @@ const STATUS_COLORS = {
 };
 const DEFAULT_COLORS = ["#2575fc", "#f0ad4e", "#d9534f", "#22c55e"];
 
-const API_BASE =
-  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
-  "https://jobtrackr-4e48.onrender.com/api";
+const API_BASE = (() => {
+  const raw =
+    (typeof process !== "undefined" && (process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL)) ||
+    "https://jobtrackr-4e48.onrender.com/api";
+  const base = raw.replace(/\/+$/, "");
+  return base.endsWith("/api") ? base : `${base}/api`;
+})();
 
 /* ---------- data hook ---------- */
 const useAnalyticsData = () => {
