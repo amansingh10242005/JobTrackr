@@ -8,7 +8,10 @@ import {
 } from "@heroicons/react/24/outline";
 import Cropper from "react-easy-crop";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://jobtrackr-4e48.onrender.com/api";
+const API_BASE = (() => {
+  const base = (process.env.NEXT_PUBLIC_API_BASE || "https://jobtrackr-4e48.onrender.com/api").replace(/\/+$/, "");
+  return base.endsWith("/api") ? base : `${base}/api`;
+})();
 
 const styles = {
   btn: { 

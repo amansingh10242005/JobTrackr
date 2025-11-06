@@ -30,7 +30,11 @@ import {
 
 // Enhanced Backend API service with Team Features
 const collabAPI = {
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "https://jobtrackr-4e48.onrender.com/api",
+  baseURL: (() => {
+    const envBase = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "https://jobtrackr-4e48.onrender.com/api";
+    const base = envBase.replace(/\/+$/, "");
+    return base.endsWith("/api") ? base : `${base}/api`;
+  })(),
 
   // In your collabAPI object, update the request function:
 async request(endpoint, options = {}) {

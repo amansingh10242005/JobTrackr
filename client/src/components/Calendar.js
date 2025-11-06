@@ -10,7 +10,10 @@ import {
 } from "@heroicons/react/24/outline";
 
 const CalendarAPI = {
-  baseURL: process.env.NEXT_PUBLIC_API_BASE || "https://jobtrackr-4e48.onrender.com/api",
+  baseURL: (() => {
+    const base = (process.env.NEXT_PUBLIC_API_BASE || "https://jobtrackr-4e48.onrender.com/api").replace(/\/+$/, "");
+    return base.endsWith("/api") ? base : `${base}/api`;
+  })(),
 
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;

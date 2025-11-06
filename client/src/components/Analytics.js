@@ -99,7 +99,7 @@ const useAnalyticsData = () => {
         setLoading(false);
         return;
       }
-        const res = await fetch(`${API_BASE}/api/tasks`, {
+        const res = await fetch(`${API_BASE}/tasks`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",

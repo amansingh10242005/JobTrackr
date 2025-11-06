@@ -13,7 +13,10 @@ import {
 } from "@heroicons/react/24/outline";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://jobtrackr-4e48.onrender.com/api";
+const API_BASE = (() => {
+  const base = (process.env.NEXT_PUBLIC_API_BASE || "https://jobtrackr-4e48.onrender.com/api").replace(/\/+$/, "");
+  return base.endsWith("/api") ? base : `${base}/api`;
+})();
 
 export default function MyTasks({ tasks, setTasks, onToggleTask }) {
   const [viewMode, setViewMode] = useState("list");
