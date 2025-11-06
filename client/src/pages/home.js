@@ -30,7 +30,7 @@ import Calendar from "../components/Calendar";
 import Profile from "../components/Profile";
 import Settings from "../components/Settings";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://jobtrackr-4e48.onrender.com/api";
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "https://jobtrackr-4e48.onrender.com/api").replace(/\/+$/, "");
 
 // User Search Component
 function UserSearch({ onUserSelect, onInviteUser, currentProject, isCollabActive }) {
