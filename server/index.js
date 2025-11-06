@@ -1162,23 +1162,22 @@ if (pathname === "/api/account/delete" && req.method === "DELETE") {
   return;
 }
 
-<<<<<<< HEAD
-    if (pathname === "/" && req.method === "GET") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({
-        message: "JobTrackr API",
-        health: "ok",
-        docs: "/api/health",
-      }));
-      return;
-    }
-    // ========== 404 HANDLER ==========
-    res.writeHead(404, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ 
-      message: "Route not found",
-      path: pathname,
-      method: req.method 
+  if (pathname === "/" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      message: "JobTrackr API",
+      health: "ok",
+      docs: "/api/health",
     }));
+    return;
+  }
+  // ========== 404 HANDLER ==========
+  res.writeHead(404, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ 
+    message: "Route not found",
+    path: pathname,
+    method: req.method 
+  }));
   } catch (error) {
     console.error("Server Error:", error);
     res.writeHead(500, { "Content-Type": "application/json" });
