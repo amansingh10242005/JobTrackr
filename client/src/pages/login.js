@@ -3,7 +3,7 @@ import Link from "next/link";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 export default function AuthPage() {
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://jobtrackr-4e48.onrender.com";
+  const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "https://jobtrackr-4e48.onrender.com").replace(/\/+$/, "");
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
