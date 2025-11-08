@@ -68,6 +68,9 @@ import {
   acceptInviteLink
 } from "./controllers/teamController.js";
 
+// Load environment variables FIRST
+dotenv.config();
+
 // ✅ Verify JWT Token for protected routes
 const verifyToken = (req) => {
   const authHeader = req.headers["authorization"];
@@ -86,7 +89,6 @@ const verifyToken = (req) => {
   return jwt.verify(token, process.env.JWT_SECRET);
 };
 
-dotenv.config();
 const PORT = process.env.PORT || 10000;
 
 const server = http.createServer(async (req, res) => {
@@ -147,11 +149,25 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === "/api/users/login" && req.method === "POST") {
-      const data = await parseBody(req);
-      const result = await loginUser(data);
-      res.writeHead(result.status, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(result.body));
-      return;
+      try {
+        console.log("🔐 Login request received");
+        const data = await parseBody(req);
+        console.log("✅ Request body parsed successfully");
+        const result = await loginUser(data);
+        console.log(`📤 Login response status: ${result.status}`);
+        res.writeHead(result.status, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result.body));
+        return;
+      } catch (error) {
+        console.error("❌ Login route error:", error);
+        try {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: error.message || "Login failed" }));
+        } catch (responseError) {
+          console.error("❌ Failed to send error response:", responseError);
+        }
+        return;
+      }
     }
 
     if (pathname === "/api/users/verify-login-2fa" && req.method === "POST") {
@@ -163,11 +179,25 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === "/api/users/forgot-password" && req.method === "POST") {
-      const data = await parseBody(req);
-      const result = await forgotPassword(data);
-      res.writeHead(result.status, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(result.body));
-      return;
+      try {
+        console.log("🔐 Forgot password request received");
+        const data = await parseBody(req);
+        console.log("✅ Request body parsed successfully");
+        const result = await forgotPassword(data);
+        console.log(`📤 Forgot password response status: ${result.status}`);
+        res.writeHead(result.status, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result.body));
+        return;
+      } catch (error) {
+        console.error("❌ Forgot password route error:", error);
+        try {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: error.message || "Failed to process reset request" }));
+        } catch (responseError) {
+          console.error("❌ Failed to send error response:", responseError);
+        }
+        return;
+      }
     }
 
     if (pathname === "/api/users/reset-password" && req.method === "POST") {

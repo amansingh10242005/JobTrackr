@@ -325,7 +325,16 @@ export const verifyEmail = async (data) => {
 // ===========================
 export const loginUser = async (data) => {
   try {
-    validateEnvVars();
+    // Validate environment variables first
+    try {
+      validateEnvVars();
+    } catch (envError) {
+      console.error("Environment variables validation failed:", envError.message);
+      return {
+        status: 500,
+        body: { error: "Server configuration error. Please contact support." },
+      };
+    }
     
     const { username, password } = data;
 
@@ -476,7 +485,11 @@ const token = jwt.sign(
     };
   } catch (error) {
     console.error("Login error:", error);
-    return { status: 500, body: { error: "Login failed" } };
+    // Provide more detailed error message in development
+    const errorMessage = process.env.NODE_ENV === "production" 
+      ? "Login failed. Please try again." 
+      : error.message || "Login failed";
+    return { status: 500, body: { error: errorMessage } };
   }
 };
 
@@ -485,7 +498,16 @@ const token = jwt.sign(
 // ===========================
 export const forgotPassword = async (data) => {
   try {
-    validateEnvVars();
+    // Validate environment variables first
+    try {
+      validateEnvVars();
+    } catch (envError) {
+      console.error("Environment variables validation failed:", envError.message);
+      return {
+        status: 500,
+        body: { error: "Server configuration error. Please contact support." },
+      };
+    }
     
     const { username } = data;
     if (!username) {
@@ -585,7 +607,11 @@ export const forgotPassword = async (data) => {
     };
   } catch (error) {
     console.error("Forgot password error:", error);
-    return { status: 500, body: { error: "Failed to process reset request" } };
+    // Provide more detailed error message in development
+    const errorMessage = process.env.NODE_ENV === "production" 
+      ? "Failed to process reset request. Please try again." 
+      : error.message || "Failed to process reset request";
+    return { status: 500, body: { error: errorMessage } };
   }
 };
 
