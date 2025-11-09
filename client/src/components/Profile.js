@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { 
   UserCircleIcon, 
   CameraIcon,
-  CheckCircleIcon,
-  ExclamationCircleIcon,
   XMarkIcon
 } from "@heroicons/react/24/outline";
 import Cropper from "react-easy-crop";
@@ -40,10 +38,10 @@ export default function Profile() {
     email: "",
     position: "",
     department: "",
-    joinDate: "",
     phone: "",
     bio: "",
-    photo: null
+    photo: null,
+    createdAt: null
   });
 
   const [recentLogins, setRecentLogins] = useState([]);
@@ -85,17 +83,19 @@ export default function Profile() {
 // If we get here, response is OK, so process the data
 const data = await response.json();
 if (data.user) {
+  // Handle nested profile object if it exists
+  const profile = data.user.profile || {};
   setUserData(prev => ({
     ...prev,
     username: data.user.username || "",
     name: data.user.name || "",
     email: data.user.email || "",
-    position: data.user.position || "",
-    department: data.user.department || "",
-    joinDate: data.user.joinDate || data.user.joinedAt || data.user.createdAt || "",
-    phone: data.user.phone || data.user.phoneNumber || "",
-    bio: data.user.bio || data.user.about || "",
-    photo: data.user.photo || data.user.avatar || null
+    position: data.user.position || profile.position || "",
+    department: data.user.department || profile.department || "",
+    phone: data.user.phone || data.user.phoneNumber || profile.phone || "",
+    bio: data.user.bio || data.user.about || profile.bio || "",
+    photo: data.user.photo || data.user.avatar || profile.photo || null,
+    createdAt: data.user.createdAt || null
   }));
 }
     } catch (error) {
@@ -107,10 +107,38 @@ if (data.user) {
       }
     }
 
-    // Load recent logins from localStorage
-    const savedLogins = localStorage.getItem("jobtrackr_recentLogins");
-    if (savedLogins) {
-      setRecentLogins(JSON.parse(savedLogins));
+    // Fetch login activities from backend
+    await fetchLoginActivities();
+  };
+
+  const fetchLoginActivities = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE}/users/login-activities`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.activities && Array.isArray(data.activities)) {
+          setRecentLogins(data.activities);
+        }
+      } else {
+        // Fallback to localStorage if backend fails
+        const savedLogins = localStorage.getItem("jobtrackr_recentLogins");
+        if (savedLogins) {
+          setRecentLogins(JSON.parse(savedLogins));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch login activities:", error);
+      // Fallback to localStorage
+      const savedLogins = localStorage.getItem("jobtrackr_recentLogins");
+      if (savedLogins) {
+        setRecentLogins(JSON.parse(savedLogins));
+      }
     }
   };
 
@@ -120,24 +148,19 @@ if (data.user) {
   try {
     const token = localStorage.getItem("token");
     
-    // Convert data URL to blob
-    const response = await fetch(photoDataUrl);
-    const blob = await response.blob();
-    
-    const formData = new FormData();
-    formData.append('photo', blob, 'profile.jpg');
-    
-    const uploadResponse = await fetch(`${API_BASE}/users/upload-photo`, {
-      method: 'POST',
+    // Save photo directly via profile update endpoint
+    const response = await fetch(`${API_BASE}/users/profile`, {
+      method: 'PATCH',
       headers: {
+        'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: formData
+      body: JSON.stringify({ photo: photoDataUrl })
     });
     
-    if (uploadResponse.ok) {
-      const result = await uploadResponse.json();
-      return result.photoUrl; // URL from backend
+    if (response.ok) {
+      const result = await response.json();
+      return result.user?.photo || photoDataUrl; // Return saved photo URL
     }
   } catch (error) {
     console.error('Photo upload failed:', error);
@@ -170,10 +193,9 @@ if (data.user) {
           croppedAreaPixels.width,
           croppedAreaPixels.height
         );
-        canvas.toBlob((blob) => {
-          if (!blob) reject(new Error("Canvas is empty"));
-          else resolve(URL.createObjectURL(blob));
-        }, "image/jpeg");
+        // Convert to data URL so it persists after reload
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+        resolve(dataUrl);
       };
       image.onerror = (err) => reject(err);
     });
@@ -198,16 +220,46 @@ if (data.user) {
     // Upload to backend and get the URL
     const uploadedPhotoUrl = await uploadPhoto(croppedImageUrl);
     
+    // Update local state with the saved photo URL
+    const finalPhotoUrl = uploadedPhotoUrl || croppedImageUrl;
     setUserData(prev => ({ 
       ...prev, 
-      photo: uploadedPhotoUrl || croppedImageUrl // Use backend URL or fallback to local
+      photo: finalPhotoUrl
     }));
+    
+    // Also update localStorage to persist immediately
+    const updatedUserData = { ...userData, photo: finalPhotoUrl };
+    localStorage.setItem("jobtrackr_user", JSON.stringify(updatedUserData));
+    
     setShowCrop(false);
     setSelectedFile(null);
   }
 };
-  const handlePhotoRemove = () => {
-    setUserData(prev => ({ ...prev, photo: null }));
+  const handlePhotoRemove = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      
+      // Remove photo from backend
+      await fetch(`${API_BASE}/users/profile`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ photo: null })
+      });
+      
+      // Update local state
+      setUserData(prev => ({ ...prev, photo: null }));
+      
+      // Update localStorage
+      const updatedUserData = { ...userData, photo: null };
+      localStorage.setItem("jobtrackr_user", JSON.stringify(updatedUserData));
+    } catch (error) {
+      console.error('Failed to remove photo:', error);
+      // Still update local state even if backend fails
+      setUserData(prev => ({ ...prev, photo: null }));
+    }
   };
 
   // ----- SAVE FUNCTION WITH BACKEND INTEGRATION -----
@@ -232,7 +284,8 @@ if (data.user) {
       position: userData.position,
       department: userData.department,
       phone: userData.phone,
-      bio: userData.bio
+      bio: userData.bio,
+      photo: userData.photo || null // Include photo in the save
     };
 
     const response = await fetch(`${API_BASE}/users/profile`, {
@@ -366,8 +419,8 @@ if (data.user) {
           <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.25rem" }}>{userData.name || "Your Name"}</h3>
           <p style={{ color: "var(--muted)", margin: "0 0 0.5rem 0" }}>{userData.position || "Your Position"}</p>
           <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
-  {userData.joinDate ? `Member since ${new Date(userData.joinDate).toLocaleDateString()}` : "Member since unknown"}
-</p>
+            Member since {userData.createdAt ? new Date(userData.createdAt).toLocaleDateString() : "recently"}
+          </p>
         </div>
       </div>
 
@@ -379,7 +432,6 @@ if (data.user) {
         <FormField label="Position" value={userData.position} onChange={(v) => handleUserDataChange("position", v)} disabled={!isEditing} />
         <FormField label="Department" value={userData.department} onChange={(v) => handleUserDataChange("department", v)} disabled={!isEditing} />
         <FormField label="Phone" value={userData.phone} onChange={(v) => handleUserDataChange("phone", v)} disabled={!isEditing} />
-        <FormField label="Join Date" type="date" value={userData.joinDate} disabled={true} />
       </div>
 
       {/* ABOUT ME */}
@@ -416,7 +468,9 @@ if (data.user) {
               ) : (
                 <CheckCircleIcon style={{ width: "16px", height: "16px", color: "#10b981" }} />
               )}
-              {login.date} — {login.device} — {login.location}
+              <span>
+                {login.date || login.timestamp ? new Date(login.date || login.timestamp).toLocaleString() : "Unknown date"} — {login.device || "Unknown device"} — {login.location || "Unknown location"}
+              </span>
             </div>
           ))}
         </div>

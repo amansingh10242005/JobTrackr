@@ -215,11 +215,15 @@ export default function AuthPage() {
 
     try {
       if (isLogin) {
+        // Get device and location info for login tracking
+        const device = navigator.userAgent || "Unknown device";
+        const location = "Unknown location"; // Can be enhanced with geolocation API
+        
         // Login API
           const res = await fetch(`${API_BASE}/users/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password }),
+          body: JSON.stringify({ username, password, device, location }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -305,10 +309,14 @@ setTimeout(() => {
     }
 
     try {
+      // Get device and location info for login tracking
+      const device = navigator.userAgent || "Unknown device";
+      const location = "Unknown location";
+      
       const res = await fetch(`${API_BASE}/users/verify-login-2fa`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: twoFAUsername, otp }),
+        body: JSON.stringify({ username: twoFAUsername, otp, device, location }),
       });
       const data = await res.json();
 

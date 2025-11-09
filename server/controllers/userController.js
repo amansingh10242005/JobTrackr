@@ -550,6 +550,36 @@ const token = jwt.sign(
   { expiresIn: "7d" }
 );
 
+    // Track login activity
+    try {
+      const loginActivity = {
+        username: user.username,
+        timestamp: new Date().toISOString(),
+        date: new Date().toISOString(),
+        device: data.device || "Unknown device",
+        location: data.location || "Unknown location",
+        ip: data.ip || "Unknown IP",
+        isSuspicious: false, // Can be enhanced with suspicious activity detection
+        createdAt: new Date().toISOString()
+      };
+
+      // Store in loginActivities collection
+      await db.collection("loginActivities").add(loginActivity);
+
+      // Also update user's recent logins (keep last 10)
+      const userActivitiesRef = db.collection("users").doc(user.username).collection("loginActivities");
+      await userActivitiesRef.add(loginActivity);
+
+      // Clean up old activities (keep only last 20)
+      const oldActivities = await userActivitiesRef.orderBy("timestamp", "desc").offset(20).get();
+      const batch = db.batch();
+      oldActivities.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+    } catch (activityError) {
+      console.error("Failed to track login activity:", activityError);
+      // Don't fail login if activity tracking fails
+    }
+
     // Remove sensitive data
     const userResponse = { ...user };
     delete userResponse.password;
@@ -981,6 +1011,36 @@ export const verifyLogin2FA = async (data) => {
 
     // Clean up OTP
     await db.collection("login2FACodes").doc(username.toLowerCase()).delete();
+
+    // Track login activity
+    try {
+      const loginActivity = {
+        username: user.username,
+        timestamp: new Date().toISOString(),
+        date: new Date().toISOString(),
+        device: data.device || "Unknown device",
+        location: data.location || "Unknown location",
+        ip: data.ip || "Unknown IP",
+        isSuspicious: false,
+        createdAt: new Date().toISOString()
+      };
+
+      // Store in loginActivities collection
+      await db.collection("loginActivities").add(loginActivity);
+
+      // Also update user's recent logins (keep last 10)
+      const userActivitiesRef = db.collection("users").doc(user.username).collection("loginActivities");
+      await userActivitiesRef.add(loginActivity);
+
+      // Clean up old activities (keep only last 20)
+      const oldActivities = await userActivitiesRef.orderBy("timestamp", "desc").offset(20).get();
+      const batch = db.batch();
+      oldActivities.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+    } catch (activityError) {
+      console.error("Failed to track login activity:", activityError);
+      // Don't fail login if activity tracking fails
+    }
 
     // Remove sensitive data
     const userResponse = { ...user };
@@ -1473,4 +1533,42 @@ export const getUserByUsername = async (req, username) => {
     return { status: 500, body: { error: "Failed to get user" } };
   }
   
+};
+
+// ===========================
+// GET LOGIN ACTIVITIES
+// ===========================
+export const getLoginActivities = async (req) => {
+  try {
+    const decoded = await verifyToken(req);
+    const username = decoded.username;
+
+    // Get login activities from user's subcollection
+    const activitiesRef = db.collection("users").doc(username).collection("loginActivities");
+    const snapshot = await activitiesRef.orderBy("timestamp", "desc").limit(10).get();
+
+    const activities = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      activities.push({
+        id: doc.id,
+        date: data.date || data.timestamp,
+        timestamp: data.timestamp || data.date,
+        device: data.device || "Unknown device",
+        location: data.location || "Unknown location",
+        isSuspicious: data.isSuspicious || false
+      });
+    });
+
+    return {
+      status: 200,
+      body: { activities }
+    };
+  } catch (error) {
+    console.error("Error in getLoginActivities:", error);
+    if (error.message.includes("Unauthorized")) {
+      return { status: 401, body: { error: "Unauthorized" } };
+    }
+    return { status: 500, body: { error: "Failed to get login activities" } };
+  }
 };
