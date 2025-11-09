@@ -567,9 +567,9 @@ export default function Analytics() {
           </p>
           <button 
             style={{...styles.btn, ...styles.primaryBtn}}
-            onClick={() => window.location.href = '/tasks'}
+            onClick={() => window.location.href = '/home'}
           >
-            Go to Tasks
+            Go to Home
           </button>
         </div>
       </div>

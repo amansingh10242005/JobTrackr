@@ -6,7 +6,8 @@ import {
   ChevronRightIcon,
   ArrowPathIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
 
 const CalendarAPI = {
@@ -96,6 +97,7 @@ export default function Calendar({ tasks: tasksFromProps = null, collapsed }) {
   const [syncStatus, setSyncStatus] = useState({});
   const [oauthLoading, setOauthLoading] = useState(false);
   const [connectionCheckLoading, setConnectionCheckLoading] = useState(false);
+  const [toast, setToast] = useState(null);
 
   const month = currentDate.getMonth();
   const year = currentDate.getFullYear();
@@ -143,6 +145,13 @@ const hasValidTime = (task) => {
   useEffect(() => {
     checkGoogleConnected();
   }, []);
+
+  // Toast auto-dismiss
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), toast.timeout || 5000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   // Auto-sync new tasks when Google is connected
 useEffect(() => {
@@ -269,14 +278,22 @@ useEffect(() => {
 
     } catch (err) {
       console.error('Failed to connect Google Calendar:', err);
-      alert('Failed to connect to Google Calendar. Please try again.');
+      setToast({ 
+        message: 'Failed to connect to Google Calendar. Please try again.', 
+        type: 'error',
+        timeout: 5000 
+      });
       setOauthLoading(false);
     }
   };
 
   const syncTask = async (taskId) => {
   if (!googleConnected) {
-    alert('Please connect Google Calendar first');
+    setToast({ 
+      message: 'Please connect Google Calendar first', 
+      type: 'warning',
+      timeout: 5000 
+    });
     return;
   }
 
@@ -310,9 +327,18 @@ useEffect(() => {
     }
     
     console.log('Task synced with time:', taskToSync.time); // Debug log
+    setToast({ 
+      message: 'Task synced to Google Calendar successfully', 
+      type: 'success',
+      timeout: 3000 
+    });
   } catch (err) {
     console.error('Failed to sync task:', err);
-    alert(err.message || 'Failed to sync task to Google Calendar');
+    setToast({ 
+      message: err.message || 'Failed to sync task to Google Calendar', 
+      type: 'error',
+      timeout: 5000 
+    });
     setSyncStatus(prev => ({
       ...prev,
       [taskId]: { ...prev[taskId], loading: false }
@@ -338,9 +364,18 @@ useEffect(() => {
         const data = await CalendarAPI.request('/tasks');
         if (data.tasks) setTasks(data.tasks);
       }
+      setToast({ 
+        message: 'Task removed from Google Calendar', 
+        type: 'success',
+        timeout: 3000 
+      });
     } catch (err) {
       console.error('Failed to unsync task:', err);
-      alert(err.message || 'Failed to remove task from Google Calendar');
+      setToast({ 
+        message: err.message || 'Failed to remove task from Google Calendar', 
+        type: 'error',
+        timeout: 5000 
+      });
       setSyncStatus(prev => ({
         ...prev,
         [taskId]: { ...prev[taskId], loading: false }
@@ -350,7 +385,11 @@ useEffect(() => {
 
   const syncAllTasks = async () => {
     if (!googleConnected) {
-      alert('Please connect Google Calendar first');
+      setToast({ 
+        message: 'Please connect Google Calendar first', 
+        type: 'warning',
+        timeout: 5000 
+      });
       return;
     }
 
@@ -361,7 +400,11 @@ useEffect(() => {
     );
     
     if (unsyncedTasks.length === 0) {
-      alert('All tasks are already synced!');
+      setToast({ 
+        message: 'All tasks are already synced!', 
+        type: 'success',
+        timeout: 3000 
+      });
       return;
     }
 
@@ -369,7 +412,11 @@ useEffect(() => {
       await syncTask(task.id);
     }
     
-    alert(`Successfully synced ${unsyncedTasks.length} tasks to Google Calendar!`);
+    setToast({ 
+      message: `Successfully synced ${unsyncedTasks.length} tasks to Google Calendar!`, 
+      type: 'success',
+      timeout: 4000 
+    });
   };
 
   // Styles matching Home.js exactly
@@ -888,6 +935,47 @@ useEffect(() => {
               {tasks.filter(task => !task.completed && task.due && new Date(task.due) >= new Date()).length}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: "fixed",
+          top: "20px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          padding: "0.75rem 1rem",
+          borderRadius: "6px",
+          border: "1px solid var(--border)",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          zIndex: 1100,
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          borderColor: toast.type === "error" ? "#ef4444" : 
+                      toast.type === "warning" ? "#f59e0b" : 
+                      toast.type === "success" ? "#22c55e" : 
+                      "var(--border)",
+          background: toast.type === "error" ? "#fef2f2" : 
+                     toast.type === "warning" ? "#fffbeb" : 
+                     toast.type === "success" ? "#f0fdf4" : 
+                     "var(--card-bg)",
+          color: toast.type === "error" ? "#b91c1c" : 
+                 toast.type === "warning" ? "#92400e" : 
+                 toast.type === "success" ? "#166534" : 
+                 "var(--text)",
+          fontSize: "0.9rem",
+          fontWeight: "500"
+        }}>
+          {toast.type === "error" ? (
+            <ExclamationTriangleIcon style={{ width: "16px", height: "16px" }} />
+          ) : toast.type === "warning" ? (
+            <ExclamationTriangleIcon style={{ width: "16px", height: "16px" }} />
+          ) : (
+            <CheckCircleIcon style={{ width: "16px", height: "16px" }} />
+          )}
+          {toast.message}
         </div>
       )}
 

@@ -83,7 +83,7 @@ async request(endpoint, options = {}) {
       } else if (response.status === 401) {
         errorMessage = 'Authentication required';
       } else if (response.status === 403) {
-        errorMessage = 'Access denied';
+        errorMessage = data.error || 'Access denied';
       } else if (response.status === 404) {
         errorMessage = data.error || 'Resource not found';
       } else if (response.status === 409) {
@@ -2215,7 +2215,7 @@ const deleteTeam = async (teamId) => {
         // Call backend to delete team
         await collabAPI.deleteTeam(teamId);
         
-        // Update local state after successful backend deletion
+        // ✅ ONLY update local state if deletion was successful
         const updated = teams.filter(t => t.id !== teamId);
         setTeams(updated);
         
@@ -2238,14 +2238,8 @@ const deleteTeam = async (teamId) => {
           showToast(err.message || 'Failed to delete team', 'error');
         }
         
-        // Even if backend fails, update local state to remove from UI
-        const updated = teams.filter(t => t.id !== teamId);
-        setTeams(updated);
-        
-        if (activeTeam?.id === teamId) {
-          setActiveTeam(null);
-          setActiveProject(null);
-        }
+        // ✅ DO NOT update local state if backend deletion failed
+        // The team should remain in the UI since it wasn't actually deleted
       } finally {
         setLoading(false);
       }

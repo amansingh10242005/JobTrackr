@@ -228,32 +228,35 @@ export const updateTask = async (req, taskId, data) => {
     }
 
     // Status-based timestamp logic
-// Status-based timestamp logic
-if (data.status !== undefined) {
-  const newStatus = data.status;
-  const currentStatus = task.status;
+    if (data.status !== undefined) {
+      const newStatus = data.status;
+      const currentStatus = task.status;
 
-  if (newStatus === "In Progress" && currentStatus !== "In Progress") {
-    updates.inProgressAt = now;
-    updates.manualStatus = true;
-  } else if (newStatus === "Completed" && currentStatus !== "Completed") {
-    updates.completed = true;
-    updates.completedAt = now;
-    updates.manualStatus = true;
-    if (!task.inProgressAt) {
-      updates.inProgressAt = task.createdAt || now;
+      if (newStatus === "In Progress") {
+        // Always set inProgressAt when moving to In Progress, even if already set
+        // This ensures the date is marked when status changes to In Progress
+        if (currentStatus !== "In Progress" || !task.inProgressAt) {
+          updates.inProgressAt = now;
+        }
+        updates.manualStatus = data.manualStatus !== undefined ? data.manualStatus : true;
+      } else if (newStatus === "Completed" && currentStatus !== "Completed") {
+        updates.completed = true;
+        updates.completedAt = now;
+        updates.manualStatus = data.manualStatus !== undefined ? data.manualStatus : true;
+        if (!task.inProgressAt) {
+          updates.inProgressAt = task.createdAt || now;
+        }
+      } else if (newStatus === "Overdue" && currentStatus !== "Overdue") {
+        updates.overdueAt = now;
+        updates.manualStatus = false; // Overdue should NOT be manual
+      } else if (newStatus === "Active") {
+        updates.completed = false;
+        updates.completedAt = null;
+        updates.overdueAt = null;
+        updates.inProgressAt = null;
+        updates.manualStatus = data.manualStatus !== undefined ? data.manualStatus : true;
+      }
     }
-  } else if (newStatus === "Overdue" && currentStatus !== "Overdue") {
-    updates.overdueAt = now;
-    updates.manualStatus = false; // Overdue should NOT be manual
-  } else if (newStatus === "Active") {
-    updates.completed = false;
-    updates.completedAt = null;
-    updates.overdueAt = null;
-    updates.inProgressAt = null;
-    updates.manualStatus = true;
-  }
-}
 
     // Handle explicit `completed` flag
     if (typeof data.completed === "boolean") {

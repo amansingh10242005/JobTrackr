@@ -345,17 +345,20 @@ const updateTaskStatus = async (taskId, newStatus, task = {}, opts = {}) => {
 
     console.log("Server response:", data); // DEBUG
 
+    // Use server response data (which includes updated timestamps)
+    const updatedTask = data.task || data;
+    
     setTasks((prev) =>
       prev.map((t) =>
         String(t.id) === String(taskId)
           ? {
               ...t,
               status: newStatus,
-              inProgressAt: updateData.inProgressAt ?? t.inProgressAt,
-              overdueAt: updateData.overdueAt ?? t.overdueAt,
-              completedAt: updateData.completedAt ?? t.completedAt,
-              completed: updateData.completed ?? t.completed,
-              manualStatus: updateData.manualStatus ?? t.manualStatus,
+              inProgressAt: updatedTask.inProgressAt ?? t.inProgressAt,
+              overdueAt: updatedTask.overdueAt ?? t.overdueAt,
+              completedAt: updatedTask.completedAt ?? t.completedAt,
+              completed: updatedTask.completed ?? t.completed,
+              manualStatus: updatedTask.manualStatus ?? t.manualStatus,
             }
           : t
       )
@@ -814,7 +817,12 @@ setTasks((prevList) =>
           status: newStatus,
           completed: newStatus === "Completed" ? true : t.completed,
           completedAt: newStatus === "Completed" ? nowISO : newStatus === "Active" ? null : t.completedAt,
-          inProgressAt: newStatus === "In Progress" ? (t.inProgressAt || nowISO) : newStatus === "Active" ? null : newStatus === "Overdue" ? null : t.inProgressAt,
+          // Set inProgressAt when transitioning TO In Progress (not when already in progress)
+          inProgressAt: newStatus === "In Progress" 
+            ? (prevStatus !== "In Progress" ? nowISO : (t.inProgressAt || nowISO))
+            : newStatus === "Active" ? null 
+            : newStatus === "Overdue" ? null 
+            : t.inProgressAt,
           manualStatus: true, // ← THIS IS CRITICAL
         }
       : t
@@ -1036,7 +1044,8 @@ setTasks((prevList) =>
     if (newStatus === "In Progress") {
       updateFields = { 
         status: "In Progress", 
-        inProgressAt: task.inProgressAt || now, 
+        // Set inProgressAt when transitioning TO In Progress
+        inProgressAt: task.status !== "In Progress" ? now : (task.inProgressAt || now), 
         manualStatus: true, 
         completed: false 
       };
@@ -1482,6 +1491,18 @@ setTasks((prevList) =>
                             return t.completed || t.status === "Completed";
                           }
                           return t.status === status && !t.completed;
+                        })
+                        .sort((a, b) => {
+                          // Sort by due date (earliest first), then by created date
+                          const aDate = a.due ? new Date(a.due) : new Date(8640000000000000);
+                          const bDate = b.due ? new Date(b.due) : new Date(8640000000000000);
+                          if (aDate.getTime() !== bDate.getTime()) {
+                            return aDate - bDate;
+                          }
+                          // If same due date, sort by created date (newest first)
+                          const aCreated = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                          const bCreated = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                          return bCreated - aCreated;
                         })
                         .map((task, index) => (
                           <Draggable 
