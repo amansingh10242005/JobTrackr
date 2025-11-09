@@ -139,6 +139,13 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === "/api/env-check" && req.method === "GET") {
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ CLIENT_URL: process.env.CLIENT_URL }));
+  return;
+}
+
+
     // ========== USER ROUTES ==========
     if (pathname === "/api/users/register" && req.method === "POST") {
       const data = await parseBody(req);

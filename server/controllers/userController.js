@@ -10,6 +10,7 @@ const validateEnvVars = () => {
   const required = ['JWT_SECRET', 'VERIFY_EMAIL_SECRET', 'RESET_TOKEN_SECRET', 'EMAIL_USER', 'EMAIL_PASS'];
   const missing = required.filter(key => !process.env[key]);
   if (missing.length > 0) {
+    console.error("Missing ENV vars:", missing);
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
 };
@@ -233,8 +234,14 @@ export const registerUser = async (data) => {
         `,
       };
 
-      await transporter.sendMail(mailOptions);
-      console.log(`✅ Verification email sent to ${email}`);
+      try {
+  await transporter.sendMail(mailOptions);
+  console.log(`Reset email sent to ${user.email}`);
+} catch (mailError) {
+  console.error("Error sending reset email:", mailError);
+  return { status: 500, body: { error: "Email sending failed: " + mailError.message } };
+}
+      console.log(`Verification email sent to ${email}`);
 
       return {
         status: 201,
@@ -248,7 +255,7 @@ export const registerUser = async (data) => {
         },
       };
     } catch (err) {
-      console.error("❌ Email send error:", err);
+      console.error("Email send error:", err);
       
       // Delete user if email fails
       await db.collection("users").doc(username.toLowerCase()).delete();
@@ -372,19 +379,16 @@ export const loginUser = async (data) => {
 
     // Check if email is verified
     if (!user.verified) {
-      return { 
-        status: 403, 
-        body: { 
-          error: "Please verify your email before logging in" 
-        } 
-      };
-    }
+  console.warn("Unverified login attempt:", user.username);
+  return { status: 403, body: { error: "Please verify your email before logging in" } };
+}
 
     // Verify password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return { status: 401, body: { error: "Invalid credentials" } };
-    }
+  console.error("Password mismatch for user:", user.username);
+  return { status: 401, body: { error: "Invalid credentials" } };
+}
 
     // Check if 2FA is enabled
     const twoFA = user.twoFA || {};
