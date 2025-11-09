@@ -37,31 +37,33 @@ export default function TokenPage() {
 
   // 🔹 Handle Email Verification Automatically
   useEffect(() => {
-    if (!token || !path.includes("verify") || hasRun.current) return;
-    hasRun.current = true;
+  if (!token || !path.includes("verify") || hasRun.current) return;
+  hasRun.current = true;
 
-    const verifyEmail = async () => {
-      try {
-        const res = await fetch("https://jobtrackr-4e48.onrender.com/api/users/verify-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-        });
+  const verifyEmail = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/users/verify-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
 
-        const data = await res.json();
-        if (res.ok) {
-          setStatus("✅ Email verified successfully! Redirecting to login...");
-          setTimeout(() => router.push("/login"), 2500);
-        } else {
-          setError(data.error || "❌ Invalid or expired token.");
-        }
-      } catch {
-        setError("❌ Server error. Please try again later.");
+      const data = await res.json();
+
+      if (res.ok) {
+        setStatus("✅ Email verified successfully! Redirecting to login...");
+        setTimeout(() => router.push("/login"), 2500);
+      } else {
+        setError(data.error || "❌ Invalid or expired token.");
       }
-    };
+    } catch (error) {
+      setError("❌ Server error. Please try again later.");
+      console.error("Verification error:", error);
+    }
+  };
 
-    verifyEmail();
-  }, [token, path, router]);
+  verifyEmail();
+}, [token, path, router]);
 
   // 🔹 Handle Password Reset (manual form)
   const handleReset = async (e) => {
@@ -75,11 +77,11 @@ export default function TokenPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("https://jobtrackr-4e48.onrender.com/api/users/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
-      });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/users/reset-password`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ token, password }),
+});
 
       const data = await res.json();
 

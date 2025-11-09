@@ -2,6 +2,7 @@ import { db } from "../config/firebase.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
+import { google } from "googleapis";
 
 // ===========================
 // Environment Variables Validation
@@ -200,13 +201,7 @@ export const registerUser = async (data) => {
 
     // Send verification email
     try {
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
+      const transporter = await createGmailTransporter();
 
       const mailOptions = {
         from: `"JobTrackr" <${process.env.EMAIL_USER}>`,
@@ -406,13 +401,37 @@ export const loginUser = async (data) => {
 
       // Send OTP via email
       try {
-        const transporter = nodemailer.createTransport({
-          service: "gmail",
-          auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-          },
-        });
+const OAuth2 = google.auth.OAuth2;
+
+const oauth2Client = new OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI
+);
+
+oauth2Client.setCredentials({
+  refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+});
+
+const accessToken = await new Promise((resolve, reject) => {
+  oauth2Client.getAccessToken((err, token) => {
+    if (err) reject(err);
+    resolve(token);
+  });
+});
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    type: "OAuth2",
+    user: process.env.EMAIL_USER,
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+    accessToken,
+  },
+});
+
 
         const mailOptions = {
           from: `"JobTrackr" <${process.env.EMAIL_USER}>`,
@@ -567,13 +586,8 @@ export const forgotPassword = async (data) => {
     const resetLink = `${process.env.CLIENT_URL || 'http://localhost:3000'}/reset-password/${token}`;
 
     // Send reset email
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+    const transporter = await createGmailTransporter();
+
 
     const mailOptions = {
       from: `"JobTrackr" <${process.env.EMAIL_USER}>`,
@@ -776,13 +790,7 @@ export const send2FAOTP = async (req, data) => {
     });
 
     // Send OTP via email
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+    const transporter = await createGmailTransporter();
 
     const mailOptions = {
       from: `"JobTrackr" <${process.env.EMAIL_USER}>`,
@@ -992,13 +1000,8 @@ export const sendDisable2FAOTP = async (req) => {
     });
 
     // Send OTP via email
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+    const transporter = await createGmailTransporter();
+
 
     const mailOptions = {
       from: `"JobTrackr" <${process.env.EMAIL_USER}>`,
@@ -1333,13 +1336,7 @@ export const searchUsers = async (req, query) => {
 // Add this function before the existing functions
 export const sendEmailNotification = async (userEmail, title, message) => {
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+    const transporter = await createGmailTransporter();
 
     const mailOptions = {
       from: `"JobTrackr" <${process.env.EMAIL_USER}>`,
