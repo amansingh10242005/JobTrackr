@@ -473,10 +473,20 @@ export const checkCalendarConnection = async (req) => {
 /**
  * Sync task to Google Calendar
  */
+import { parseBody } from "../utils/parseBody.js"; // ⬅️ add this at top if not already
+
 export const syncTaskToCalendar = async (req, taskId) => {
   try {
     const decoded = verifyToken(req);
     const username = decoded.username;
+
+    // ✅ Parse body to get extra fields like 'time'
+    let bodyData = {};
+    try {
+      bodyData = await parseBody(req);
+    } catch {
+      bodyData = {};
+    }
 
     // Get task from Firestore
     const taskDoc = await db.collection("tasks").doc(taskId).get();
@@ -484,12 +494,16 @@ export const syncTaskToCalendar = async (req, taskId) => {
       return { status: 404, body: { error: "Task not found" } };
     }
 
-    const task = { id: taskDoc.id, ...taskDoc.data() };
-    
+    // Merge Firestore data with incoming body data
+    const task = { id: taskDoc.id, ...taskDoc.data(), ...bodyData };
+
     // Verify task belongs to user
     if (task.username !== username) {
       return { status: 403, body: { error: "Not authorized to sync this task" } };
     }
+
+    // Debug log to confirm merged data
+    console.log("🧭 Syncing task with merged data:", task);
 
     const result = await createOrUpdateEventForTask(task, username);
     
@@ -522,6 +536,7 @@ export const syncTaskToCalendar = async (req, taskId) => {
     };
   }
 };
+
 
 /**
  * Remove task from Google Calendar
