@@ -145,43 +145,6 @@ const server = http.createServer(async (req, res) => {
   return;
 }
 
-// ===========================
-// Gmail OAuth2 Transporter Helper
-// ===========================
-
-async function createGmailTransporter() {
-  const OAuth2 = google.auth.OAuth2;
-  const oauth2Client = new OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
-  );
-
-  oauth2Client.setCredentials({
-    refresh_token: process.env.GMAIL_REFRESH_TOKEN,
-  });
-
-  const accessToken = await new Promise((resolve, reject) => {
-    oauth2Client.getAccessToken((err, token) => {
-      if (err) reject(err);
-      resolve(token);
-    });
-  });
-
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      type: "OAuth2",
-      user: process.env.EMAIL_USER,
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      refreshToken: process.env.GMAIL_REFRESH_TOKEN,
-      accessToken,
-    },
-  });
-}
-
-
     // ========== USER ROUTES ==========
     if (pathname === "/api/users/register" && req.method === "POST") {
       const data = await parseBody(req);

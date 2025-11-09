@@ -8,7 +8,16 @@ import { google } from "googleapis";
 // Environment Variables Validation
 // ===========================
 const validateEnvVars = () => {
-  const required = ['JWT_SECRET', 'VERIFY_EMAIL_SECRET', 'RESET_TOKEN_SECRET', 'EMAIL_USER', 'EMAIL_PASS'];
+  const required = [
+  'JWT_SECRET',
+  'VERIFY_EMAIL_SECRET',
+  'RESET_TOKEN_SECRET',
+  'EMAIL_USER',
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+  'GOOGLE_REDIRECT_URI',
+  'GMAIL_REFRESH_TOKEN'
+];
   const missing = required.filter(key => !process.env[key]);
   if (missing.length > 0) {
     console.error("Missing ENV vars:", missing);
@@ -75,6 +84,43 @@ const sanitizeUser = (user) => {
 
   return sanitized;
 };
+
+// ===========================
+// Gmail OAuth2 Transporter Helper
+// ===========================
+
+async function createGmailTransporter() {
+  const OAuth2 = google.auth.OAuth2;
+  const oauth2Client = new OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI
+  );
+
+  oauth2Client.setCredentials({
+    refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+  });
+
+  const accessToken = await new Promise((resolve, reject) => {
+    oauth2Client.getAccessToken((err, token) => {
+      if (err) reject(err);
+      resolve(token);
+    });
+  });
+
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      type: "OAuth2",
+      user: process.env.EMAIL_USER,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+      accessToken,
+    },
+  });
+}
+
 
 // ===========================
 // GET CURRENT USER
