@@ -456,84 +456,51 @@ export const loginUser = async (data) => {
         createdAt: new Date().toISOString()
       });
 
-      // Send OTP via email
-      try {
-const OAuth2 = google.auth.OAuth2;
+      // Send OTP via Gmail API
+try {
+  const mailOptions = {
+    to: twoFA.email,
+    subject: "Your Login Verification Code",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Login Verification</h2>
+        <p>Hello ${user.name || user.username},</p>
+        <p>Someone is trying to log into your JobTrackr account. Please use the verification code below:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <div style="font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #2563eb;">
+            ${otp}
+          </div>
+        </div>
+        <p>This code will expire in 10 minutes.</p>
+        <p>If you didn't attempt to log in, please ignore this email or secure your account.</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+        <p style="color: #6b7280; font-size: 14px;">
+          This is an automated message from JobTrackr.
+        </p>
+      </div>
+    `,
+  };
 
-const oauth2Client = new OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
-);
+  await sendMailViaGmailAPI(mailOptions);
+  console.log(`✅ Login OTP sent to ${twoFA.email}`);
 
-oauth2Client.setCredentials({
-  refresh_token: process.env.GMAIL_REFRESH_TOKEN,
-});
-
-const accessToken = await new Promise((resolve, reject) => {
-  oauth2Client.getAccessToken((err, token) => {
-    if (err) reject(err);
-    resolve(token);
-  });
-});
-
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    type: "OAuth2",
-    user: process.env.EMAIL_USER,
-    clientId: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    refreshToken: process.env.GMAIL_REFRESH_TOKEN,
-    accessToken,
-  },
-});
-
-
-        const mailOptions = {
-          from: `"JobTrackr" <${process.env.EMAIL_USER}>`,
-          to: twoFA.email,
-          subject: "Your Login Verification Code",
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #2563eb;">Login Verification</h2>
-              <p>Hello ${user.name || user.username},</p>
-              <p>Someone is trying to log into your JobTrackr account. Please use the verification code below:</p>
-              <div style="text-align: center; margin: 30px 0;">
-                <div style="font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #2563eb;">
-                  ${otp}
-                </div>
-              </div>
-              <p>This code will expire in 10 minutes.</p>
-              <p>If you didn't attempt to log in, please ignore this email or secure your account.</p>
-              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-              <p style="color: #6b7280; font-size: 14px;">
-                This is an automated message from JobTrackr.
-              </p>
-            </div>
-          `,
-        };
-
-        await transporter.sendMail(mailOptions);
-        console.log(`✅ Login OTP sent to ${twoFA.email}`);
-
-        return {
-          status: 200,
-          body: {
-            message: "Two-factor authentication required",
-            requires2FA: true,
-            email: twoFA.email, // Send email so client can show which email received OTP
-            username: user.username // Send username for the verification step
-          },
-        };
-      } catch (emailError) {
-        console.error("❌ Failed to send login OTP:", emailError);
-        return { 
-          status: 500, 
-          body: { error: "Failed to send verification code. Please try again." } 
-        };
-      }
-    }
+  return {
+    status: 200,
+    body: {
+      message: "Two-factor authentication required",
+      requires2FA: true,
+      email: twoFA.email,
+      username: user.username,
+    },
+  };
+} catch (emailError) {
+  console.error("❌ Failed to send login OTP:", emailError);
+  return {
+    status: 500,
+    body: { error: "Failed to send verification code. Please try again." },
+  };
+}
+}
 
 // Get current token version
 const userRef = db.collection("users").doc(user.username);
