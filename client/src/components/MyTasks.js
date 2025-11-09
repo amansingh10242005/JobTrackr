@@ -392,16 +392,35 @@ useEffect(() => {
           (newStatus !== task.status && !task.manualStatus); // Update other statuses only if not manually set
         
         if (shouldUpdate) {
-          console.log(`Auto-updating task ${task.id} from ${task.status} to ${newStatus}`);
-          return { 
-            ...task, 
-            status: newStatus,
-            // Reset manualStatus when system automatically changes to Overdue
-            manualStatus: newStatus === "Overdue" ? false : task.manualStatus
-          };
-        }
-        
-        return task;
+  console.log(`Auto-updating task ${task.id} from ${task.status} to ${newStatus}`);
+
+  // ✅ Immediately update the backend so timestamps (inProgressAt, overdueAt) get saved
+  apiFetch(`/tasks/${encodeURIComponent(task.id)}`, {
+    method: "PATCH",
+    body: { 
+      status: newStatus, 
+      manualStatus: false 
+    }
+  })
+  .then(() => {
+    console.log(`✅ Auto-update persisted for task ${task.id}`);
+  })
+  .catch((err) => {
+    console.error(`❌ Auto-update failed for task ${task.id}:`, err);
+  });
+
+  // ✅ Update local state too, keeping manualStatus consistent
+  return { 
+    ...task, 
+    status: newStatus,
+    manualStatus: newStatus === "Overdue" ? false : task.manualStatus,
+    // Optional: record inProgressAt immediately on frontend for instant UI reflection
+    inProgressAt: newStatus === "In Progress" ? new Date().toISOString() : task.inProgressAt,
+    overdueAt: newStatus === "Overdue" ? new Date().toISOString() : task.overdueAt
+  };
+}
+
+return task;
       })
     );
   };
@@ -644,14 +663,23 @@ setTimeout(() => {
   });
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
-    // Completed tasks go to bottom
-    if ((a.completed || false) !== (b.completed || false)) return a.completed ? 1 : -1;
-    
-    // Sort by due date (tasks without due date go to bottom)
-    const aDate = a.due ? new Date(a.due) : new Date(8640000000000000);
-    const bDate = b.due ? new Date(b.due) : new Date(8640000000000000);
-    return aDate - bDate;
-  });
+  // 1️⃣ Completed tasks always at bottom
+  if ((a.completed || false) !== (b.completed || false)) return a.completed ? 1 : -1;
+
+  // 2️⃣ Sort by due date (earlier first)
+  const aDate = a.due ? new Date(a.due) : new Date(8640000000000000);
+  const bDate = b.due ? new Date(b.due) : new Date(8640000000000000);
+  const dateDiff = aDate - bDate;
+  if (dateDiff !== 0) return dateDiff;
+
+  // 3️⃣ For tasks on the SAME date: order by status
+  // In Progress → Active → Overdue → Completed
+  const order = ["In Progress", "Active", "Overdue", "Completed"];
+  const aOrder = order.indexOf(a.status || "Active");
+  const bOrder = order.indexOf(b.status || "Active");
+  return aOrder - bOrder;
+});
+
 
   // ---------------- auto-scroll during drag ----------------
   const startAutoScroll = () => {
