@@ -7,40 +7,62 @@ import { google } from "googleapis";
 // Gmail API Mail Sender (No SMTP)
 // ===========================
 async function sendMailViaGmailAPI({ to, subject, html }) {
-  const OAuth2 = google.auth.OAuth2;
+  try {
+    const OAuth2 = google.auth.OAuth2;
 
-  const oauth2Client = new OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
-  );
+    const oauth2Client = new OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    );
 
-  oauth2Client.setCredentials({
-    refresh_token: process.env.GMAIL_REFRESH_TOKEN,
-  });
+    oauth2Client.setCredentials({
+      refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+    });
 
-  const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+    const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
-  const rawMessage = [
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    "Content-Type: text/html; charset=utf-8",
-    "",
-    html,
-  ].join("\n");
+    const rawMessage = [
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      "Content-Type: text/html; charset=utf-8",
+      "",
+      html,
+    ].join("\n");
 
-  const encodedMessage = Buffer.from(rawMessage)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
+    const encodedMessage = Buffer.from(rawMessage)
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
 
-  await gmail.users.messages.send({
-    userId: "me",
-    requestBody: { raw: encodedMessage },
-  });
+    await gmail.users.messages.send({
+      userId: "me",
+      requestBody: { raw: encodedMessage },
+    });
 
-  console.log(`📤 Email sent successfully to ${to}`);
+    console.log(`📤 Email sent successfully to ${to}`);
+  } catch (error) {
+    // Get error message from various possible locations
+    const errorMessage = error.message || error.cause?.message || error.response?.data?.error?.message || String(error);
+    console.error("❌ Gmail API Error:", errorMessage);
+    
+    // Check if it's the API not enabled error
+    if (errorMessage && errorMessage.includes("Gmail API has not been used")) {
+      const projectIdMatch = errorMessage.match(/project (\d+)/);
+      const projectId = projectIdMatch ? projectIdMatch[1] : "your-project";
+      const enableUrl = `https://console.developers.google.com/apis/api/gmail.googleapis.com/overview?project=${projectId}`;
+      
+      console.error(`\n⚠️  Gmail API is not enabled for your project!`);
+      console.error(`📋 Please enable it by visiting: ${enableUrl}`);
+      console.error(`💡 After enabling, wait a few minutes for the changes to propagate.\n`);
+      
+      throw new Error(`Gmail API is not enabled. Please enable it in Google Cloud Console: ${enableUrl}`);
+    }
+    
+    // Re-throw other errors
+    throw error;
+  }
 }
 
 
