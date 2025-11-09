@@ -218,28 +218,39 @@ export default function MyTasks({ tasks, setTasks, onToggleTask }) {
   const addNotification = (title, message) => {
   try {
     const newNotification = { 
-      id: Date.now().toString(), 
+      id: `${title}-${new Date().toISOString()}`, 
       title, 
       message, 
       timestamp: new Date().toISOString(), 
       read: false 
     };
+
+    // ✅ Prevent duplicates: load old notifications
+    const existing = JSON.parse(localStorage.getItem("notifications") || "[]");
     
-    // Update global state in home.js by using a custom event with data
-    const event = new CustomEvent('newNotification', { 
-      detail: newNotification 
-    });
+    // Check if a notification with same title+message exists in last 24 hours
+    const alreadyExists = existing.some(n => 
+      n.title === title &&
+      n.message === message &&
+      new Date() - new Date(n.timestamp) < 24 * 60 * 60 * 1000
+    );
+
+    if (alreadyExists) {
+      console.log(`⏹ Skipped duplicate notification: "${title}"`);
+      return;
+    }
+
+    // ✅ Only trigger once
+    const event = new CustomEvent("newNotification", { detail: newNotification });
     window.dispatchEvent(event);
-    
-    // Also update localStorage for persistence
-    const globalNotifications = JSON.parse(localStorage.getItem("notifications") || "[]");
-    const updatedNotifications = [newNotification, ...globalNotifications];
-    localStorage.setItem("notifications", JSON.stringify(updatedNotifications));
-    
-  } catch (err) { 
-    console.error("addNotification error:", err); 
+
+    const updated = [newNotification, ...existing].slice(0, 50); // limit to 50 stored
+    localStorage.setItem("notifications", JSON.stringify(updated));
+  } catch (err) {
+    console.error("addNotification error:", err);
   }
 };
+
   // ---------------- date helpers ----------------
   const areDatesEqual = (d1, d2) => { 
     if (!d1 || !d2) return false; 
