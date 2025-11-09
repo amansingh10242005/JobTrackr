@@ -550,36 +550,6 @@ const token = jwt.sign(
   { expiresIn: "7d" }
 );
 
-    // Track login activity
-    try {
-      const loginActivity = {
-        username: user.username,
-        timestamp: new Date().toISOString(),
-        date: new Date().toISOString(),
-        device: data.device || "Unknown device",
-        location: data.location || "Unknown location",
-        ip: data.ip || "Unknown IP",
-        isSuspicious: false, // Can be enhanced with suspicious activity detection
-        createdAt: new Date().toISOString()
-      };
-
-      // Store in loginActivities collection
-      await db.collection("loginActivities").add(loginActivity);
-
-      // Also update user's recent logins (keep last 10)
-      const userActivitiesRef = db.collection("users").doc(user.username).collection("loginActivities");
-      await userActivitiesRef.add(loginActivity);
-
-      // Clean up old activities (keep only last 20)
-      const oldActivities = await userActivitiesRef.orderBy("timestamp", "desc").offset(20).get();
-      const batch = db.batch();
-      oldActivities.forEach(doc => batch.delete(doc.ref));
-      await batch.commit();
-    } catch (activityError) {
-      console.error("Failed to track login activity:", activityError);
-      // Don't fail login if activity tracking fails
-    }
-
     // Remove sensitive data
     const userResponse = { ...user };
     delete userResponse.password;
@@ -1012,36 +982,6 @@ export const verifyLogin2FA = async (data) => {
     // Clean up OTP
     await db.collection("login2FACodes").doc(username.toLowerCase()).delete();
 
-    // Track login activity
-    try {
-      const loginActivity = {
-        username: user.username,
-        timestamp: new Date().toISOString(),
-        date: new Date().toISOString(),
-        device: data.device || "Unknown device",
-        location: data.location || "Unknown location",
-        ip: data.ip || "Unknown IP",
-        isSuspicious: false,
-        createdAt: new Date().toISOString()
-      };
-
-      // Store in loginActivities collection
-      await db.collection("loginActivities").add(loginActivity);
-
-      // Also update user's recent logins (keep last 10)
-      const userActivitiesRef = db.collection("users").doc(user.username).collection("loginActivities");
-      await userActivitiesRef.add(loginActivity);
-
-      // Clean up old activities (keep only last 20)
-      const oldActivities = await userActivitiesRef.orderBy("timestamp", "desc").offset(20).get();
-      const batch = db.batch();
-      oldActivities.forEach(doc => batch.delete(doc.ref));
-      await batch.commit();
-    } catch (activityError) {
-      console.error("Failed to track login activity:", activityError);
-      // Don't fail login if activity tracking fails
-    }
-
     // Remove sensitive data
     const userResponse = { ...user };
     delete userResponse.password;
@@ -1342,6 +1282,16 @@ export const updateUserProfile = async (req, data) => {
 
     await userRef.update(updates);
 
+    // Log activity if profile was updated
+    if (Object.keys(updates).length > 1) { // More than just updatedAt
+      const activityDescription = data.photo 
+        ? "Updated profile picture" 
+        : "Updated profile information";
+      await logUserActivity(username, "profile_update", activityDescription, {
+        fields: Object.keys(updates).filter(k => k !== "updatedAt")
+      });
+    }
+
     // Get updated user data
     const updatedDoc = await userRef.get();
     const userData = sanitizeUser(updatedDoc.data());
@@ -1536,39 +1486,85 @@ export const getUserByUsername = async (req, username) => {
 };
 
 // ===========================
-// GET LOGIN ACTIVITIES
+// GET USER ACTIVITY LOG
 // ===========================
-export const getLoginActivities = async (req) => {
+export const getUserActivityLog = async (req) => {
   try {
     const decoded = await verifyToken(req);
     const username = decoded.username;
-
-    // Get login activities from user's subcollection
-    const activitiesRef = db.collection("users").doc(username).collection("loginActivities");
-    const snapshot = await activitiesRef.orderBy("timestamp", "desc").limit(10).get();
-
-    const activities = [];
-    snapshot.forEach(doc => {
+    
+    // Get user activities from Firestore
+    // Try with orderBy first, fallback to without if index doesn't exist
+    let activitiesSnapshot;
+    try {
+      activitiesSnapshot = await db.collection("userActivities")
+        .where("username", "==", username)
+        .orderBy("timestamp", "desc")
+        .limit(50)
+        .get();
+    } catch (error) {
+      // If index doesn't exist, get all and sort in memory
+      if (error.message && error.message.includes("index")) {
+        console.log("Firestore index not found, fetching without orderBy");
+        activitiesSnapshot = await db.collection("userActivities")
+          .where("username", "==", username)
+          .limit(50)
+          .get();
+      } else {
+        throw error;
+      }
+    }
+    
+    let activities = activitiesSnapshot.docs.map(doc => {
       const data = doc.data();
-      activities.push({
+      return {
         id: doc.id,
-        date: data.date || data.timestamp,
-        timestamp: data.timestamp || data.date,
-        device: data.device || "Unknown device",
-        location: data.location || "Unknown location",
-        isSuspicious: data.isSuspicious || false
-      });
+        ...data,
+        timestamp: data.timestamp?.toDate ? data.timestamp.toDate().toISOString() : data.timestamp
+      };
     });
-
+    
+    // Sort by timestamp if we didn't use orderBy
+    if (activities.length > 0 && !activities[0].timestamp) {
+      // If no timestamp, keep original order
+    } else {
+      activities.sort((a, b) => {
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return timeB - timeA; // Descending order
+      });
+    }
+    
     return {
       status: 200,
       body: { activities }
     };
   } catch (error) {
-    console.error("Error in getLoginActivities:", error);
+    console.error("Error in getUserActivityLog:", error);
     if (error.message.includes("Unauthorized")) {
       return { status: 401, body: { error: "Unauthorized" } };
     }
-    return { status: 500, body: { error: "Failed to get login activities" } };
+    return { status: 500, body: { error: "Failed to get activity log" } };
+  }
+};
+
+// ===========================
+// LOG USER ACTIVITY
+// ===========================
+export const logUserActivity = async (username, type, description, metadata = {}) => {
+  try {
+    const activity = {
+      username,
+      type,
+      description,
+      metadata,
+      timestamp: new Date()
+    };
+    
+    await db.collection("userActivities").add(activity);
+    return true;
+  } catch (error) {
+    console.error("Error logging user activity:", error);
+    return false;
   }
 };

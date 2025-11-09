@@ -44,10 +44,11 @@ export default function Profile() {
     createdAt: null
   });
 
-  const [recentLogins, setRecentLogins] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [warning, setWarning] = useState("");
   const [loading, setLoading] = useState(false);
+  const [activities, setActivities] = useState([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
 
   // CROPPING STATES
   const [showCrop, setShowCrop] = useState(false);
@@ -59,6 +60,7 @@ export default function Profile() {
   // Fetch user data from backend
   useEffect(() => {
     fetchUserData();
+    fetchActivityLog();
   }, []);
 
   const fetchUserData = async () => {
@@ -85,6 +87,7 @@ const data = await response.json();
 if (data.user) {
   // Handle nested profile object if it exists
   const profile = data.user.profile || {};
+  const photo = data.user.photo || data.user.avatar || profile.photo || null;
   setUserData(prev => ({
     ...prev,
     username: data.user.username || "",
@@ -94,9 +97,19 @@ if (data.user) {
     department: data.user.department || profile.department || "",
     phone: data.user.phone || data.user.phoneNumber || profile.phone || "",
     bio: data.user.bio || data.user.about || profile.bio || "",
-    photo: data.user.photo || data.user.avatar || profile.photo || null,
+    photo: photo, // Ensure photo is properly set
     createdAt: data.user.createdAt || null
   }));
+  
+  // Also update localStorage to persist photo
+  if (photo) {
+    const saved = localStorage.getItem("jobtrackr_user");
+    const savedData = saved ? JSON.parse(saved) : {};
+    localStorage.setItem("jobtrackr_user", JSON.stringify({
+      ...savedData,
+      photo: photo
+    }));
+  }
 }
     } catch (error) {
       console.error("Failed to fetch user data:", error);
@@ -107,14 +120,13 @@ if (data.user) {
       }
     }
 
-    // Fetch login activities from backend
-    await fetchLoginActivities();
   };
 
-  const fetchLoginActivities = async () => {
+  const fetchActivityLog = async () => {
     try {
+      setLoadingActivities(true);
       const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE}/users/login-activities`, {
+      const response = await fetch(`${API_BASE}/users/activity-log`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -122,23 +134,12 @@ if (data.user) {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.activities && Array.isArray(data.activities)) {
-          setRecentLogins(data.activities);
-        }
-      } else {
-        // Fallback to localStorage if backend fails
-        const savedLogins = localStorage.getItem("jobtrackr_recentLogins");
-        if (savedLogins) {
-          setRecentLogins(JSON.parse(savedLogins));
-        }
+        setActivities(data.activities || []);
       }
     } catch (error) {
-      console.error("Failed to fetch login activities:", error);
-      // Fallback to localStorage
-      const savedLogins = localStorage.getItem("jobtrackr_recentLogins");
-      if (savedLogins) {
-        setRecentLogins(JSON.parse(savedLogins));
-      }
+      console.error("Failed to fetch activity log:", error);
+    } finally {
+      setLoadingActivities(false);
     }
   };
 
@@ -228,8 +229,13 @@ if (data.user) {
     }));
     
     // Also update localStorage to persist immediately
-    const updatedUserData = { ...userData, photo: finalPhotoUrl };
-    localStorage.setItem("jobtrackr_user", JSON.stringify(updatedUserData));
+    const saved = localStorage.getItem("jobtrackr_user");
+    const savedData = saved ? JSON.parse(saved) : {};
+    localStorage.setItem("jobtrackr_user", JSON.stringify({
+      ...savedData,
+      ...userData,
+      photo: finalPhotoUrl
+    }));
     
     setShowCrop(false);
     setSelectedFile(null);
@@ -299,9 +305,16 @@ if (data.user) {
 
       if (response.ok) {
         const data = await response.json();
-        setUserData(prev => ({ ...prev, ...data.user }));
-        localStorage.setItem("jobtrackr_user", JSON.stringify(userData));
+        const updatedData = {
+          ...userData,
+          ...data.user,
+          photo: data.user?.photo || userData.photo // Preserve photo
+        };
+        setUserData(prev => ({ ...prev, ...updatedData }));
+        localStorage.setItem("jobtrackr_user", JSON.stringify(updatedData));
         setIsEditing(false);
+        // Refresh activity log after profile update
+        fetchActivityLog();
       } else {
         const errorData = await response.json();
         setWarning(errorData.error || "Failed to save profile");
@@ -439,41 +452,69 @@ if (data.user) {
         <FormField label="About Me" type="textarea" value={userData.bio} onChange={(v) => handleUserDataChange("bio", v)} disabled={!isEditing} />
       </div>
 
-      {/* RECENT LOGIN ACTIVITY */}
-      <div style={{
-        marginTop: "2rem",
-        background: "var(--card-bg)",
-        padding: "1.5rem",
-        borderRadius: "12px",
-        border: "1px solid var(--border)",
-        boxShadow: "var(--shadow)"
-      }}>
-        <h3 style={{ marginBottom: "1rem" }}>Recent Login Activity</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {recentLogins.length === 0 && (
-            <p style={{ color: "var(--muted)" }}>No recent logins available.</p>
-          )}
-          {recentLogins.map((login, index) => (
-            <div key={index} style={{
-              padding: "0.75rem",
-              background: "var(--input-bg)",
-              borderRadius: "8px",
-              fontSize: "0.9rem",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem"
-            }}>
-              {login.isSuspicious ? (
-                <ExclamationCircleIcon style={{ width: "16px", height: "16px", color: "#f59e0b" }} />
-              ) : (
-                <CheckCircleIcon style={{ width: "16px", height: "16px", color: "#10b981" }} />
-              )}
-              <span>
-                {login.date || login.timestamp ? new Date(login.date || login.timestamp).toLocaleString() : "Unknown date"} — {login.device || "Unknown device"} — {login.location || "Unknown location"}
-              </span>
-            </div>
-          ))}
-        </div>
+      {/* ACTIVITY LOG */}
+      <div style={{ marginTop: "2rem" }}>
+        <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.1rem", fontWeight: "600" }}>Activity Log</h3>
+        {loadingActivities ? (
+          <div style={{ padding: "2rem", textAlign: "center", color: "var(--muted)" }}>
+            Loading activities...
+          </div>
+        ) : activities.length === 0 ? (
+          <div style={{ 
+            padding: "2rem", 
+            textAlign: "center", 
+            color: "var(--muted)",
+            background: "var(--input-bg)",
+            borderRadius: "8px",
+            border: "1px solid var(--border)"
+          }}>
+            No activities yet. Your recent actions will appear here.
+          </div>
+        ) : (
+          <div style={{
+            background: "var(--input-bg)",
+            borderRadius: "8px",
+            border: "1px solid var(--border)",
+            maxHeight: "400px",
+            overflowY: "auto"
+          }}>
+            {activities.map((activity) => (
+              <div
+                key={activity.id}
+                style={{
+                  padding: "1rem",
+                  borderBottom: "1px solid var(--border)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  gap: "1rem"
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: "0 0 0.25rem 0", fontWeight: "500" }}>
+                    {activity.description}
+                  </p>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--muted)" }}>
+                    {activity.timestamp 
+                      ? new Date(activity.timestamp).toLocaleString()
+                      : "Recently"}
+                  </p>
+                </div>
+                <div style={{
+                  padding: "0.25rem 0.5rem",
+                  borderRadius: "4px",
+                  background: "var(--blue)",
+                  color: "white",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  textTransform: "uppercase"
+                }}>
+                  {activity.type?.replace("_", " ") || "Activity"}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* CROP MODAL */}

@@ -29,7 +29,7 @@ import {
   disable2FA,
   logoutAllDevices,
   deleteAccount,
-  getLoginActivities
+  getUserActivityLog
 } from "./controllers/userController.js";
 import { 
   getTasks, 
@@ -242,13 +242,6 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/users/profile" && req.method === "PATCH") {
       const data = await parseBody(req);
       const result = await updateUserProfile(req, data);
-      res.writeHead(result.status, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(result.body));
-      return;
-    }
-
-    if (pathname === "/api/users/login-activities" && req.method === "GET") {
-      const result = await getLoginActivities(req);
       res.writeHead(result.status, { "Content-Type": "application/json" });
       res.end(JSON.stringify(result.body));
       return;
@@ -1144,6 +1137,13 @@ if (pathname === "/api/users/settings" && req.method === "GET") {
 if (pathname === "/api/users/settings" && req.method === "PUT") {
   const data = await parseBody(req);
   const result = await updateUserSettings(req, data);
+  res.writeHead(result.status, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(result.body));
+  return;
+}
+
+if (pathname === "/api/users/activity-log" && req.method === "GET") {
+  const result = await getUserActivityLog(req);
   res.writeHead(result.status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(result.body));
   return;
