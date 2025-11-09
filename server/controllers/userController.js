@@ -1,8 +1,48 @@
 import { db } from "../config/firebase.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
 import { google } from "googleapis";
+
+// ===========================
+// Gmail API Mail Sender (No SMTP)
+// ===========================
+async function sendMailViaGmailAPI({ to, subject, html }) {
+  const OAuth2 = google.auth.OAuth2;
+
+  const oauth2Client = new OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI
+  );
+
+  oauth2Client.setCredentials({
+    refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+  });
+
+  const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+
+  const rawMessage = [
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    "Content-Type: text/html; charset=utf-8",
+    "",
+    html,
+  ].join("\n");
+
+  const encodedMessage = Buffer.from(rawMessage)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+  await gmail.users.messages.send({
+    userId: "me",
+    requestBody: { raw: encodedMessage },
+  });
+
+  console.log(`📤 Email sent successfully to ${to}`);
+}
+
 
 // ===========================
 // Environment Variables Validation
@@ -84,42 +124,6 @@ const sanitizeUser = (user) => {
 
   return sanitized;
 };
-
-// ===========================
-// Gmail OAuth2 Transporter Helper
-// ===========================
-
-async function createGmailTransporter() {
-  const OAuth2 = google.auth.OAuth2;
-  const oauth2Client = new OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
-  );
-
-  oauth2Client.setCredentials({
-    refresh_token: process.env.GMAIL_REFRESH_TOKEN,
-  });
-
-  const accessToken = await new Promise((resolve, reject) => {
-    oauth2Client.getAccessToken((err, token) => {
-      if (err) reject(err);
-      resolve(token);
-    });
-  });
-
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      type: "OAuth2",
-      user: process.env.EMAIL_USER,
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      refreshToken: process.env.GMAIL_REFRESH_TOKEN,
-      accessToken,
-    },
-  });
-}
 
 
 // ===========================
@@ -246,43 +250,28 @@ export const registerUser = async (data) => {
     const verifyLink = `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email/${token}`;
 
     // Send verification email
-    try {
-      const transporter = await createGmailTransporter();
+    try{
+    const mailOptions = {
+  to: email,
+  subject: "Verify your JobTrackr account",
+  html: `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #2563eb;">Welcome to JobTrackr! 🎉</h2>
+      <p>Hello ${name || username},</p>
+      <p>Please verify your email by clicking below:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${verifyLink}" style="background: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none;">
+          Verify Email Address
+        </a>
+      </div>
+      <p>This link will expire in 24 hours.</p>
+    </div>
+  `,
+};
 
-      const mailOptions = {
-        from: `"JobTrackr" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: "Verify your JobTrackr account",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2563eb;">Welcome to JobTrackr! 🎉</h2>
-            <p>Hello ${name || username},</p>
-            <p>Thank you for registering with JobTrackr. Please verify your email address to get started:</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verifyLink}" 
-                style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                Verify Email Address
-              </a>
-            </div>
-            <p>This link will expire in 24 hours.</p>
-            <p>If you didn't create an account, you can safely ignore this email.</p>
-            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-            <p style="color: #6b7280; font-size: 14px;">
-              If the button doesn't work, copy and paste this link in your browser:<br>
-              ${verifyLink}
-            </p>
-          </div>
-        `,
-      };
+await sendMailViaGmailAPI(mailOptions);
+console.log(`✅ Verification email sent to ${email}`);
 
-      try {
-  await transporter.sendMail(mailOptions);
-  console.log(`Reset email sent to ${user.email}`);
-} catch (mailError) {
-  console.error("Error sending reset email:", mailError);
-  return { status: 500, body: { error: "Email sending failed: " + mailError.message } };
-}
-      console.log(`Verification email sent to ${email}`);
 
       return {
         status: 201,
@@ -632,36 +621,26 @@ export const forgotPassword = async (data) => {
     const resetLink = `${process.env.CLIENT_URL || 'http://localhost:3000'}/reset-password/${token}`;
 
     // Send reset email
-    const transporter = await createGmailTransporter();
-
-
     const mailOptions = {
-      from: `"JobTrackr" <${process.env.EMAIL_USER}>`,
-      to: user.email,
-      subject: "Reset Your JobTrackr Password",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #2563eb;">Password Reset Request</h2>
-          <p>Hello ${user.name || user.username},</p>
-          <p>You requested to reset your password. Click the button below to create a new password:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetLink}" 
-              style="background: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-              Reset Password
-            </a>
-          </div>
-          <p>This link will expire in 15 minutes for security reasons.</p>
-          <p>If you didn't request this reset, please ignore this email.</p>
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-          <p style="color: #6b7280; font-size: 14px;">
-            If the button doesn't work, copy and paste this link in your browser:<br>
-            ${resetLink}
-          </p>
-        </div>
-      `,
-    };
+  to: user.email,
+  subject: "Reset Your JobTrackr Password",
+  html: `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #2563eb;">Password Reset Request</h2>
+      <p>Hello ${user.name || user.username},</p>
+      <p>You requested a password reset. Click the button below:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetLink}" style="background: #dc2626; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none;">
+          Reset Password
+        </a>
+      </div>
+      <p>This link expires in 15 minutes.</p>
+    </div>
+  `,
+};
 
-    await transporter.sendMail(mailOptions);
+await sendMailViaGmailAPI(mailOptions);
+console.log(`✅ Password reset email sent to ${user.email}`);
 
     return { 
       status: 200, 
@@ -836,33 +815,26 @@ export const send2FAOTP = async (req, data) => {
     });
 
     // Send OTP via email
-    const transporter = await createGmailTransporter();
-
     const mailOptions = {
-      from: `"JobTrackr" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Your Two-Factor Authentication Code",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #2563eb;">Two-Factor Authentication</h2>
-          <p>Hello,</p>
-          <p>Your verification code for Two-Factor Authentication is:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <div style="font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #2563eb;">
-              ${otp}
-            </div>
-          </div>
-          <p>This code will expire in 10 minutes.</p>
-          <p>If you didn't request this code, please ignore this email.</p>
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-          <p style="color: #6b7280; font-size: 14px;">
-            This is an automated message from JobTrackr.
-          </p>
+  to: email,
+  subject: "Your Two-Factor Authentication Code",
+  html: `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #2563eb;">Two-Factor Authentication</h2>
+      <p>Your verification code is:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <div style="font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #2563eb;">
+          ${otp}
         </div>
-      `,
-    };
+      </div>
+      <p>This code expires in 10 minutes.</p>
+    </div>
+  `,
+};
 
-    await transporter.sendMail(mailOptions);
+await sendMailViaGmailAPI(mailOptions);
+console.log(`✅ 2FA OTP sent to ${email}`);
+
 
     return { 
       status: 200, 
@@ -1046,35 +1018,26 @@ export const sendDisable2FAOTP = async (req) => {
     });
 
     // Send OTP via email
-    const transporter = await createGmailTransporter();
-
-
     const mailOptions = {
-      from: `"JobTrackr" <${process.env.EMAIL_USER}>`,
-      to: twoFA.email,
-      subject: "Disable Two-Factor Authentication - Verification Code",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #dc2626;">Disable Two-Factor Authentication</h2>
-          <p>Hello ${user.name || user.username},</p>
-          <p>You requested to disable two-factor authentication for your account. Please use the verification code below:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <div style="font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #2563eb;">
-              ${otp}
-            </div>
-          </div>
-          <p>This code will expire in 10 minutes.</p>
-          <p style="color: #dc2626; font-weight: 600;">If you didn't request to disable 2FA, please ignore this email and secure your account.</p>
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-          <p style="color: #6b7280; font-size: 14px;">
-            This is an automated message from JobTrackr.
-          </p>
+  to: twoFA.email,
+  subject: "Disable Two-Factor Authentication - Verification Code",
+  html: `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #dc2626;">Disable Two-Factor Authentication</h2>
+      <p>Your code is:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <div style="font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #2563eb;">
+          ${otp}
         </div>
-      `,
-    };
+      </div>
+      <p>Code expires in 10 minutes.</p>
+    </div>
+  `,
+};
 
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Disable 2FA OTP sent to ${twoFA.email}`);
+await sendMailViaGmailAPI(mailOptions);
+console.log(`✅ Disable 2FA OTP sent to ${twoFA.email}`);
+
 
     return { 
       status: 200, 
@@ -1382,26 +1345,23 @@ export const searchUsers = async (req, query) => {
 // Add this function before the existing functions
 export const sendEmailNotification = async (userEmail, title, message) => {
   try {
-    const transporter = await createGmailTransporter();
-
     const mailOptions = {
-      from: `"JobTrackr" <${process.env.EMAIL_USER}>`,
-      to: userEmail,
-      subject: title,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #2563eb;">${title}</h2>
-          <p>${message}</p>
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-          <p style="color: #6b7280; font-size: 14px;">
-            This is an automated notification from JobTrackr.
-          </p>
-        </div>
-      `,
-    };
+  to: userEmail,
+  subject: title,
+  html: `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #2563eb;">${title}</h2>
+      <p>${message}</p>
+      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+      <p style="color: #6b7280; font-size: 14px;">
+        This is an automated notification from JobTrackr.
+      </p>
+    </div>
+  `,
+};
 
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Email notification sent to ${userEmail}`);
+await sendMailViaGmailAPI(mailOptions);
+console.log(`✅ Email notification sent to ${userEmail}`);
     return true;
   } catch (error) {
     console.error("❌ Email notification failed:", error);
